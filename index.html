@@ -14,11 +14,14 @@
 <body>
   <div id="app">
     <!-- Screens rendered here by router.js -->
-    <div id="screen-home" class="screen active"></div>
-    <div id="screen-calendar" class="screen"></div>
-    <div id="screen-warmup" class="screen"></div>
-    <div id="screen-session" class="screen"></div>
-    <div id="screen-trophies" class="screen"></div>
+    <div id="screen-onboarding" class="screen"></div>
+    <div id="screen-home"       class="screen active"></div>
+    <div id="screen-calendar"   class="screen"></div>
+    <div id="screen-warmup"     class="screen"></div>
+    <div id="screen-session"    class="screen"></div>
+    <div id="screen-trophies"   class="screen"></div>
+    <div id="screen-settings"   class="screen"></div>
+    <div id="screen-cycle-complete" class="screen"></div>
   </div>
 
   <!-- Bottom Navigation -->
@@ -65,9 +68,11 @@
 
   <!-- Scripts: load in dependency order -->
   <script src="js/data.js"></script>
+  <script src="js/generator.js"></script>
   <script src="js/state.js"></script>
   <script src="js/timer.js"></script>
   <script src="js/badges.js"></script>
+  <script src="js/onboarding.js"></script>
   <script src="js/calendar.js"></script>
   <script src="js/session.js"></script>
   <script src="js/router.js"></script>

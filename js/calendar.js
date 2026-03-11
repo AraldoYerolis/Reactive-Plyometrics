@@ -12,13 +12,19 @@ function renderCalendar() {
   const el = document.getElementById('screen-calendar');
   if (!el) return;
 
+  // Use dynamic program if available
+  const prog = getState().program;
+  const profile = getState().profile || {};
+  const levelLabel = { beginner:'Beginner', intermediate:'Intermediate', advanced:'Advanced', elite:'Elite' }[profile.experienceLevel] || '';
+
   el.innerHTML = `
     <div class="calendar-header">
       <div class="flex justify-between items-center">
-        <h1 class="display-md">12-Week Program</h1>
-        <span class="streak-badge">
-          🔥 ${getStreakDays()} day streak
-        </span>
+        <div>
+          <h1 class="display-md">12-Week Program</h1>
+          ${levelLabel ? `<p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">${levelLabel} · ${(profile.goal || '').charAt(0).toUpperCase() + (profile.goal || '').slice(1)}</p>` : ''}
+        </div>
+        <span class="streak-badge">🔥 ${getStreakDays()} day streak</span>
       </div>
       <div class="calendar-legend">
         ${PHASES.map(p => `
@@ -28,13 +34,13 @@ function renderCalendar() {
           </div>
         `).join('')}
         <div class="legend-item">
-          <div class="legend-dot" style="background: var(--text-muted)"></div>
+          <div class="legend-dot" style="background:var(--text-muted)"></div>
           <span>Rest</span>
         </div>
       </div>
     </div>
     <div class="calendar-body">
-      ${renderAllWeeks()}
+      ${_renderAllWeeks(prog)}
     </div>
   `;
 
@@ -42,14 +48,14 @@ function renderCalendar() {
   el.querySelectorAll('.day-cell.workout').forEach(cell => {
     cell.addEventListener('click', () => {
       const week = parseInt(cell.dataset.week);
-      const day = cell.dataset.day;
-      toggleDayDetail(week, day, cell);
+      const day  = cell.dataset.day;
+      _toggleDayDetail(week, day, cell, prog);
     });
   });
 }
 
 /* ── Render all 12 weeks ── */
-function renderAllWeeks() {
+function _renderAllWeeks(prog) {
   let html = '';
   for (let w = 1; w <= 12; w++) {
     const phase = getPhase(w);
@@ -58,8 +64,8 @@ function renderAllWeeks() {
         <div class="week-label ${phase.label}">
           Week ${w} &nbsp;·&nbsp; ${phase.name}
         </div>
-        <div class="day-grid" id="day-grid-${w}">
-          ${renderWeekDays(w)}
+        <div class="day-grid-cal" id="day-grid-${w}">
+          ${_renderWeekDays(w, prog)}
         </div>
       </div>
     `;
@@ -68,36 +74,38 @@ function renderAllWeeks() {
 }
 
 /* ── Render day cells for one week ── */
-function renderWeekDays(week) {
-  const sched = SCHEDULE[week] || {};
+function _renderWeekDays(week, prog) {
+  const sched = prog ? (prog.weeks[week] || {}) : (SCHEDULE[week] || {});
   const phase = getPhase(week);
-  const today = new Date();
-  const startDate = getState().startDate;
   let html = '';
 
   ALL_DAYS.forEach((day, idx) => {
     const hasWorkout = !!sched[day];
-    const done = hasWorkout && isSessionComplete(week, day);
-    const isToday = calcIsToday(week, idx);
+    const done       = hasWorkout && isSessionComplete(week, day);
+    const isToday    = _calcIsToday(week, idx);
 
     let classes = 'day-cell';
     if (hasWorkout) {
       classes += ` workout ${phase.label}`;
-      if (done) classes += ' completed';
+      if (done)    classes += ' completed';
       if (isToday) classes += ' today';
     } else {
       classes += ' rest';
     }
 
     const exCount = hasWorkout ? sched[day].exercises.length : 0;
-    const label = DAY_LABELS[day] || day.slice(0,1);
+    const label   = DAY_LABELS[day] || day.slice(0, 1);
 
     html += `
       <div class="${classes}"
            data-week="${week}" data-day="${day}"
-           aria-label="${day} Week ${week}${hasWorkout ? ', '+exCount+' exercises' : ', Rest day'}">
+           aria-label="${day} Week ${week}${hasWorkout ? ', ' + exCount + ' exercises' : ', Rest day'}">
         <span class="day-num">${label}</span>
-        ${done ? '' : (hasWorkout ? `<span class="day-name">${exCount}ex</span>` : '<span class="day-name">rest</span>')}
+        ${done
+          ? '<span class="day-check">✓</span>'
+          : (hasWorkout
+            ? `<span class="day-name">${exCount}ex</span>`
+            : '<span class="day-name">rest</span>')}
       </div>
     `;
   });
@@ -106,34 +114,38 @@ function renderWeekDays(week) {
 }
 
 /* ── Toggle day detail panel ── */
-function toggleDayDetail(week, dayKey, cellEl) {
+function _toggleDayDetail(week, dayKey, cellEl, prog) {
   const gridEl = document.getElementById(`day-grid-${week}`);
   if (!gridEl) return;
 
-  // Remove existing panel if any
-  const existing = gridEl.querySelector('.day-detail-panel');
+  // Remove existing panel
+  const existing  = gridEl.querySelector('.day-detail-panel');
   const isSameDay = _calendarExpandedDay &&
     _calendarExpandedDay.week === week && _calendarExpandedDay.dayKey === dayKey;
 
   if (existing) {
     existing.remove();
     _calendarExpandedDay = null;
-    if (isSameDay) return; // clicking same day closes it
+    if (isSameDay) return;
   }
 
   _calendarExpandedDay = { week, dayKey };
 
-  const session = getSession(week, dayKey);
+  const session = prog
+    ? getDynamicSession(prog, week, dayKey)
+    : getSession(week, dayKey);
   if (!session) return;
 
   const phase = session.phase;
-  const done = isSessionComplete(week, dayKey);
+  const done  = isSessionComplete(week, dayKey);
+
   const exList = session.exercises.map(ex =>
     `<li>
        <span class="ex-name">${ex.name}</span>
        <span class="ex-sets">${fmtExercise(ex)}</span>
      </li>`
   ).join('');
+
   const ecList = session.extraCredit.length ? `
     <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border);">
       <span class="label-sm" style="color:var(--accent-purple); margin-bottom:6px; display:block;">Extra Credit</span>
@@ -152,39 +164,31 @@ function toggleDayDetail(week, dayKey, cellEl) {
         <span class="phase-pill ${phase.label}">${phase.name}</span>
         <div class="day-detail-title" style="margin-top:6px;">${dayKey}, Week ${week}</div>
       </div>
-      ${done ?
-        '<span style="color: var(--phase1); font-size:1.4rem;">✓ Done</span>' :
-        `<button class="btn-primary" style="width:auto; padding:10px 20px; font-size:0.875rem;"
-                 onclick="startSession(${week},'${dayKey}')">Start</button>`
-      }
+      ${done
+        ? '<span style="color:var(--phase1); font-size:1.4rem;">✓ Done</span>'
+        : `<button class="btn-primary" style="width:auto; padding:10px 20px; font-size:0.875rem;"
+                   onclick="startSession(${week},'${dayKey}')">Start</button>`}
     </div>
     <ul class="day-detail-exercises">${exList}</ul>
     ${ecList}
-    ${session.extraCredit.length ? '' : ''}
   `;
 
   gridEl.appendChild(panel);
-
-  // Smooth scroll to panel
   setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
 }
 
-/* ── Determine if a specific week/day index is "today" relative to program start ──
-   This is approximate: maps program day to calendar real date. */
-function calcIsToday(week, dayIndex) {
+/* ── Approximate "is today" based on program start date ── */
+function _calcIsToday(week, dayIndex) {
   const state = getState();
   if (!state.startDate) return false;
-  const start = new Date(state.startDate);
-  // week 1 = days 0-6, week 2 = days 7-13, etc.
+  const start   = new Date(state.startDate);
   const progDay = (week - 1) * 7 + dayIndex;
-  const targetDate = new Date(start);
-  targetDate.setDate(start.getDate() + progDay);
-  const today = new Date();
-  return targetDate.toDateString() === today.toDateString();
+  const target  = new Date(start);
+  target.setDate(start.getDate() + progDay);
+  return target.toDateString() === new Date().toDateString();
 }
 
 /* ── Kick off a session from calendar ── */
 function startSession(week, dayKey) {
-  // Navigate to warmup screen
-  window.location.hash = `#warmup-${week}-${dayKey}`;
+  window.location.hash = `#session-${week}-${dayKey}`;
 }
