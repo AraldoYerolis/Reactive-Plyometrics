@@ -26,11 +26,17 @@ let _restTimer = null;
 
 /* ── Public entry point ── */
 function startWorkoutSession(week, dayKey) {
+  // Normalize dayKey to Title Case (e.g. "MON" → "Mon") so router hashes
+  // always match the casing used in the generated program's week keys.
+  const normDay =
+    dayKey.charAt(0).toUpperCase() +
+    dayKey.slice(1).toLowerCase();
+
   // Use dynamic program if available, fall back to static SCHEDULE
   const prog = getState().program;
   _sess = prog
-    ? getDynamicSession(prog, week, dayKey)
-    : getSession(week, dayKey);
+    ? getDynamicSession(prog, week, normDay)
+    : getSession(week, normDay);
 
   // Default to first scheduled workout if none found
   if (!_sess) {
