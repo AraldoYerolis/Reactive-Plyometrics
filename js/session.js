@@ -44,7 +44,8 @@ function startWorkoutSession(week, dayKey) {
   }
 
   if (!_sess) {
-    renderSessionScreen();
+    console.error('Session not found', week, dayKey);
+    window.location.hash = '#home';
     return;
   }
 

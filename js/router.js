@@ -43,17 +43,22 @@ function navigate(screenId, params = {}) {
     case 'onboarding':     renderOnboarding();     break;
     case 'cycle-complete': renderCycleComplete(params); break;
     case 'session':
-      if (params.week && params.dayKey) {
-        startWorkoutSession(params.week, params.dayKey);
-      } else {
-        // No specific session params — start the next incomplete workout
-        const next = getUpcomingSessions(1);
-        const target2 = next.length ? next[0] : getAllSessions()[0];
-        if (target2) {
-          startWorkoutSession(target2.week, target2.dayKey);
+      try {
+        if (params.week && params.dayKey) {
+          startWorkoutSession(params.week, params.dayKey);
         } else {
-          startWorkoutSession(null, null); // triggers fallback UI
+          // No specific session params — start the next incomplete workout
+          const next = getUpcomingSessions(1);
+          const target2 = next.length ? next[0] : getAllSessions()[0];
+          if (target2) {
+            startWorkoutSession(target2.week, target2.dayKey);
+          } else {
+            startWorkoutSession(null, null); // triggers fallback UI
+          }
         }
+      } catch (e) {
+        console.error(e);
+        window.location.hash = '#home';
       }
       break;
     case 'warmup': /* handled by session flow */ break;
@@ -258,15 +263,13 @@ function renderHome() {
 
 /* ── Helper: get next N upcoming (not completed) sessions ── */
 function getUpcomingSessions(n) {
+  const prog = getState().program;
+  const all  = prog ? getDynamicSessions(prog) : getAllSessions();
   const result = [];
-  const prog   = getState().program;
-  for (let w = 1; w <= 12; w++) {
-    const sched = prog ? (prog.weeks[w] || {}) : (SCHEDULE[w] || {});
-    for (const day of ALL_DAYS) {
-      if (sched[day] && !isSessionComplete(w, day)) {
-        result.push({ week: w, dayKey: day });
-        if (result.length >= n) return result;
-      }
+  for (const s of all) {
+    if (!isSessionComplete(s.week, s.dayKey)) {
+      result.push(s);
+      if (result.length >= n) break;
     }
   }
   return result;
