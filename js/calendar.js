@@ -9,6 +9,7 @@ let _calendarExpandedDay = null; // { week, dayKey }
 
 /* ── Render the full calendar screen ── */
 function renderCalendar() {
+  document.getElementById('dbg').innerText = 'RENDER CAL';
   const el = document.getElementById('screen-calendar');
   if (!el) return;
 
