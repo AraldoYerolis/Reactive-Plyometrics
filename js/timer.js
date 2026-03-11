@@ -131,6 +131,11 @@ class RestTimer {
     }, 1000);
   }
 
+  stop() {
+    clearInterval(this._interval);
+    this._interval = null;
+  }
+
   skip() {
     clearInterval(this._interval);
     this.remaining = 0;
