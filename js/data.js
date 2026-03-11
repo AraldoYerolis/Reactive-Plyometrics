@@ -184,8 +184,8 @@ function getDynamicSessions(program) {
   const weeks = program.weeks || {};
   for (let w = 1; w <= 12; w++) {
     const sched = weeks[w] || {};
-    ALL_DAYS.forEach(day => {
-      if (sched[day]) sessions.push({ week: w, dayKey: day });
+    Object.keys(sched).forEach(day => {
+      sessions.push({ week: w, dayKey: day });
     });
   }
   return sessions;

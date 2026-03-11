@@ -45,8 +45,7 @@ function startWorkoutSession(week, dayKey) {
 
   if (!_sess) {
     console.error('Session not found', week, dayKey);
-    window.location.hash = '#home';
-    return;
+    return false;
   }
 
   // Clear any stale rest timer from a previous session
@@ -68,6 +67,7 @@ function startWorkoutSession(week, dayKey) {
 
   patchState({ pendingSession: { week: _sess.week, dayKey: _sess.dayKey } });
   renderSessionScreen();
+  return true;
 }
 
 /* ── Main renderer: picks sub-view based on state ── */
