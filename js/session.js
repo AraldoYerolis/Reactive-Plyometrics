@@ -26,26 +26,17 @@ let _restTimer = null;
 
 /* ── Public entry point ── */
 function startWorkoutSession(week, dayKey) {
-   const debug = document.getElementById('screen-session');
+  // Normalize dayKey to Title Case (e.g. "MON" → "Mon") so router hashes
+  // always match the casing used in the generated program's week keys.
+  const normDay =
+    dayKey.charAt(0).toUpperCase() +
+    dayKey.slice(1).toLowerCase();
 
-  if (debug) {
-    debug.innerHTML = `
-      <div style="padding:40px;color:white">
-        <h2>DEBUG</h2>
-        <div>Requested: ${week} / ${dayKey}</div>
-        <div>Program Days: ${
-          Object.keys((getState().program.weeks || {})[week] || {}).join(', ')
-        }</div>
-      </div>
-    `;
-  }
-
-  // KEEP ALL YOUR EXISTING CODE BELOW;
   // Use dynamic program if available, fall back to static SCHEDULE
   const prog = getState().program;
   _sess = prog
-    ? getDynamicSession(prog, week, dayKey)
-    : getSession(week, dayKey);
+    ? getDynamicSession(prog, week, normDay)
+    : getSession(week, normDay);
 
   // Default to first scheduled workout if none found
   if (!_sess) {
