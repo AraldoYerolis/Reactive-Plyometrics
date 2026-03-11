@@ -7,6 +7,7 @@
 
 /* ── Boot ── */
 (function boot() {
+  document.getElementById('dbg').innerText = 'BOOT OK';
   // Wire bottom nav buttons
   document.querySelectorAll('.nav-btn[data-screen]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -17,6 +18,7 @@
 
   // Initialize router (handles initial hash)
   initRouter();
+  document.getElementById('dbg').innerText = 'ROUTER INIT';
 
   // First-run check: redirect to onboarding if not completed
   const state = getState();

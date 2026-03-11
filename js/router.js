@@ -32,6 +32,7 @@ function navigate(screenId, params = {}) {
   const target = document.getElementById(`screen-${screenId}`);
   if (!target) return;
   target.classList.add('active');
+  document.getElementById('dbg').innerText = 'NAV ' + screenId;
   _currentScreen = screenId;
 
   // Render screen content
@@ -91,6 +92,7 @@ function initRouter() {
 
 /* ── Render Home Screen ── */
 function renderHome() {
+  document.getElementById('dbg').innerText = 'RENDER HOME';
   const el = document.getElementById('screen-home');
   if (!el) return;
 
@@ -483,6 +485,7 @@ function renderCycleComplete(params = {}) {
 
 /* ── Render Trophy Room ── */
 function renderTrophies() {
+  document.getElementById('dbg').innerText = 'RENDER TROPHIES';
   const el = document.getElementById('screen-trophies');
   if (!el) return;
 
