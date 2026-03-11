@@ -164,7 +164,7 @@ function renderHome() {
 
       <!-- Quick start -->
       ${upcoming.length ? `
-        <button class="btn-primary" onclick="window.location.hash='#session-${upcoming[0].week}-${upcoming[0].dayKey}'">
+        <button class="btn-primary" onclick="alert('HASH: session-${upcoming[0].week}-${upcoming[0].dayKey}'); window.location.hash='session-${upcoming[0].week}-${upcoming[0].dayKey}'">
           Start Next Session ▶
         </button>` : `
         <div style="background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3); border-radius:var(--radius-md); padding:var(--space-md); text-align:center;">
