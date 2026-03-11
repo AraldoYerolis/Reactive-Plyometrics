@@ -43,10 +43,12 @@ function navigate(screenId, params = {}) {
     case 'onboarding':     renderOnboarding();     break;
     case 'cycle-complete': renderCycleComplete(params); break;
     case 'session': {
-      const prog = getState().program;
-      const all = prog ? getDynamicSessions(prog) : getAllSessions();
-      if (all.length) {
-        startWorkoutSession(all[0].week, all[0].dayKey);
+      const ok = startWorkoutSession(params.week, params.dayKey);
+      if (!ok) {
+        const prog2 = getState().program;
+        const all2 = prog2 ? getDynamicSessions(prog2) : getAllSessions();
+        if (all2.length) startWorkoutSession(all2[0].week, all2[0].dayKey);
+        else window.location.hash = 'home';
       }
       break;
     }
@@ -71,7 +73,10 @@ function handleHashChange() {
     return;
   }
 
-  if (SCREENS.includes(hash)) {
+  const sessionMatch = hash.match(/^session-(\d+)-(\w+)$/);
+  if (sessionMatch) {
+    navigate('session', { week: Number(sessionMatch[1]), dayKey: sessionMatch[2] });
+  } else if (SCREENS.includes(hash)) {
     navigate(hash);
   } else {
     navigate('home');
@@ -104,7 +109,11 @@ function renderHome() {
   const levelLabel   = { beginner:'Beginner', intermediate:'Intermediate', advanced:'Advanced', elite:'Elite' }[profile.experienceLevel] || '';
   const goalLabel    = { speed:'Speed', power:'Power', agility:'Agility', general:'General' }[profile.goal] || '';
 
-  const upcoming = getUpcomingSessions(3);
+  const upcoming = prog
+    ? getDynamicSessions(prog)
+        .filter(s => !isSessionComplete(s.week, s.dayKey))
+        .slice(0, 3)
+    : getUpcomingSessions(3);
 
   el.innerHTML = `
     <div class="home-hero">
@@ -155,7 +164,7 @@ function renderHome() {
 
       <!-- Quick start -->
       ${upcoming.length ? `
-        <button class="btn-primary" onclick="alert('HASH: session-${upcoming[0].week}-${upcoming[0].dayKey}'); window.location.hash='session-${upcoming[0].week}-${upcoming[0].dayKey}'">
+        <button class="btn-primary" onclick="window.location.hash='session-${upcoming[0].week}-${upcoming[0].dayKey}'">
           Start Next Session ▶
         </button>` : `
         <div style="background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3); border-radius:var(--radius-md); padding:var(--space-md); text-align:center;">
@@ -201,7 +210,7 @@ function renderHome() {
             const prog2 = getState().program;
             const sess = prog2 ? getDynamicSession(prog2, s.week, s.dayKey) : getSession(s.week, s.dayKey);
             return `
-              <div class="session-item" onclick="window.location.hash='#session-${s.week}-${s.dayKey}'">
+              <div class="session-item" onclick="window.location.hash='session-${s.week}-${s.dayKey}'">
                 <div class="session-day-badge ${ph.label}">
                   <span class="session-day-name">${s.dayKey.slice(0,3)}</span>
                   <span class="session-day-num">W${s.week}</span>
