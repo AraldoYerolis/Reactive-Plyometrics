@@ -26,6 +26,8 @@ let _restTimer = null;
 
 /* ── Public entry point ── */
 function startWorkoutSession(week, dayKey) {
+   console.log("SESSION START REQUEST:", week, dayKey);
+console.log("PROGRAM DAYS:", Object.keys((getState().program.weeks || {})[week] || {}));
   // Use dynamic program if available, fall back to static SCHEDULE
   const prog = getState().program;
   _sess = prog
