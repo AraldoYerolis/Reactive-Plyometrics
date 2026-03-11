@@ -86,7 +86,10 @@ function handleHashChange() {
 
 /* ── Initialize router ── */
 function initRouter() {
+  document.getElementById('dbg').innerText = 'INIT ROUTER START';
   window.addEventListener('hashchange', handleHashChange);
+  document.getElementById('dbg').innerText = 'STATE OK';
+  document.getElementById('dbg').innerText = 'ABOUT TO NAV';
   handleHashChange(); // handle initial hash
 }
 
