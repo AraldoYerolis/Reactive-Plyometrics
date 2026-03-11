@@ -1,6 +1,6 @@
 /* ============================================================
    REACTIVE PLYOMETRICS — STATE.JS
-   localStorage persistence and state management
+   localStorage persistence and state management (schema v2)
    ============================================================ */
 
 'use strict';
@@ -8,12 +8,21 @@
 const RP_KEY = 'rp_v1';
 
 const DEFAULT_STATE = {
-  version: 1,
-  startDate: null,           // ISO date string, set on first use
-  cyclesCompleted: 0,        // how many full 12-week cycles done
+  version: 2,
+  onboardingComplete: false,
+  startDate: null,
+  cyclesCompleted: 0,
   completedSessions: {},     // { "w1-Mon": { ts, extraCredit } }
   earnedBadges: [],          // [{ cycle, ts, name }]
-  pendingSession: null,      // { week, dayKey } - session in progress
+  pendingSession: null,      // { week, dayKey } – session in progress
+  profile: {
+    experienceLevel: 'beginner', // beginner | intermediate | advanced | elite
+    goal: 'general',             // speed | power | agility | general
+    daysPerWeek: 3,
+    selectedDays: ['Mon', 'Wed', 'Fri'],
+  },
+  program: null,             // generated 12-week program object
+  cycleHistory: [],          // [{ cycle, profile, startedAt, completedAt }]
 };
 
 let _state = null;
@@ -24,15 +33,26 @@ function _load() {
     const raw = localStorage.getItem(RP_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Deep merge with defaults to handle version upgrades
+      // Migrate v1 → v2: inject new fields without wiping progress
+      if (!parsed.version || parsed.version < 2) {
+        parsed.version           = 2;
+        parsed.onboardingComplete = parsed.onboardingComplete || false;
+        parsed.profile            = parsed.profile || { ...DEFAULT_STATE.profile };
+        parsed.program            = parsed.program || null;
+        parsed.cycleHistory       = parsed.cycleHistory || [];
+      }
       _state = Object.assign({}, DEFAULT_STATE, parsed);
+      // Always deep-merge profile to fill any missing keys added in future versions
+      _state.profile = Object.assign({}, DEFAULT_STATE.profile, _state.profile);
     } else {
-      _state = { ...DEFAULT_STATE, startDate: new Date().toISOString().slice(0,10) };
+      _state = { ...DEFAULT_STATE, startDate: new Date().toISOString().slice(0, 10) };
+      _state.profile = { ...DEFAULT_STATE.profile };
       _save();
     }
-  } catch(e) {
+  } catch (e) {
     console.warn('[RP] localStorage load failed, using defaults', e);
-    _state = { ...DEFAULT_STATE, startDate: new Date().toISOString().slice(0,10) };
+    _state = { ...DEFAULT_STATE, startDate: new Date().toISOString().slice(0, 10) };
+    _state.profile = { ...DEFAULT_STATE.profile };
   }
 }
 
@@ -40,7 +60,7 @@ function _load() {
 function _save() {
   try {
     localStorage.setItem(RP_KEY, JSON.stringify(_state));
-  } catch(e) {
+  } catch (e) {
     console.warn('[RP] localStorage save failed', e);
   }
 }
@@ -53,7 +73,6 @@ function getState() {
 
 function patchState(patch) {
   if (!_state) _load();
-  // Deep merge one level
   for (const key of Object.keys(patch)) {
     if (patch[key] !== null && typeof patch[key] === 'object' && !Array.isArray(patch[key])) {
       _state[key] = Object.assign({}, _state[key] || {}, patch[key]);
@@ -66,7 +85,11 @@ function patchState(patch) {
 }
 
 function resetState() {
-  _state = { ...DEFAULT_STATE, startDate: new Date().toISOString().slice(0,10) };
+  _state = {
+    ...DEFAULT_STATE,
+    startDate: new Date().toISOString().slice(0, 10),
+    profile: { ...DEFAULT_STATE.profile },
+  };
   _save();
   return _state;
 }
@@ -92,19 +115,21 @@ function getCompletedSessionCount() {
 
 function checkAndAwardBadge() {
   if (!_state) _load();
-  const total = getTotalSessions();        // from data.js
-  const done  = getCompletedSessionCount();
-  const cycleSessionsDone = done % total;
+  // Use dynamic program session count if available
+  const prog  = _state.program;
+  const total = prog ? getDynamicSessions(prog).length : getTotalSessions();
+  if (!total) return null;
+
+  const done     = getCompletedSessionCount();
   const newCycle = Math.floor(done / total);
 
-  // Award badge if we just completed a cycle
   if (newCycle > _state.cyclesCompleted) {
     const cycle = newCycle;
     _state.cyclesCompleted = cycle;
     const badge = { cycle, ts: Date.now(), name: BADGE_NAMES[Math.min(cycle, 5)] };
     _state.earnedBadges.push(badge);
     _save();
-    return badge;   // caller shows celebration
+    return badge;
   }
   return null;
 }
@@ -117,35 +142,33 @@ function hasBadge(cycle) {
 /* ── Stats helpers ── */
 function getCurrentWeek() {
   if (!_state) _load();
-  // Determine which week the user is currently on based on completed sessions
-  // Go through weeks 1-12, find first week with an incomplete workout day
+  const prog = _state.program;
   for (let w = 1; w <= 12; w++) {
-    const sched = SCHEDULE[w] || {};
-    const days = Object.keys(sched);
+    const sched = prog ? (prog.weeks[w] || {}) : (SCHEDULE[w] || {});
+    const days  = Object.keys(sched);
+    if (!days.length) continue;
     const allDone = days.every(d => isSessionComplete(w, d));
     if (!allDone) return w;
   }
-  return 12; // all done
+  return 12;
 }
 
 function getStreakDays() {
   if (!_state) _load();
   const sessions = Object.values(_state.completedSessions);
   if (!sessions.length) return 0;
-  // Sort by timestamp desc
-  sessions.sort((a,b) => b.ts - a.ts);
-  const now = Date.now();
-  let streak = 0;
-  let prevDay = null;
+  sessions.sort((a, b) => b.ts - a.ts);
+  let streak   = 0;
+  let prevDay  = null;
   for (const s of sessions) {
     const dayStart = new Date(s.ts);
-    dayStart.setHours(0,0,0,0);
+    dayStart.setHours(0, 0, 0, 0);
     const dayKey = dayStart.getTime();
     if (prevDay === null) {
-      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
       const diffDays = Math.floor((todayStart - dayStart) / 86400000);
-      if (diffDays > 1) break; // last session was more than yesterday
-      streak = 1;
+      if (diffDays > 1) break;
+      streak  = 1;
       prevDay = dayKey;
     } else {
       const diff = Math.floor((prevDay - dayKey) / 86400000);
@@ -156,7 +179,32 @@ function getStreakDays() {
   return streak;
 }
 
-/* Badge names (used in checkAndAwardBadge) */
+/* ── Cycle history helpers ── */
+function startNewCycle() {
+  if (!_state) _load();
+  const profile     = _state.profile || DEFAULT_STATE.profile;
+  const cycleNum    = (_state.cyclesCompleted || 0) + 1;
+
+  // Archive current cycle
+  _state.cycleHistory = _state.cycleHistory || [];
+  _state.cycleHistory.push({
+    cycle: cycleNum - 1,
+    profile: { ...profile },
+    completedAt: Date.now(),
+    sessionsCompleted: Object.keys(_state.completedSessions).length,
+  });
+
+  // Reset completed sessions for the new cycle
+  _state.completedSessions = {};
+
+  // Generate new program with incremented cycle number
+  const newProgram = generateProgram({ ...profile, cycleNum });
+  _state.program  = newProgram;
+  _save();
+  return newProgram;
+}
+
+/* ── Badge names ── */
 const BADGE_NAMES = {
   1: 'Wobble',
   2: 'Fangs',
@@ -169,7 +217,7 @@ const BADGE_NAMES = {
 (function init() {
   _load();
   if (!_state.startDate) {
-    _state.startDate = new Date().toISOString().slice(0,10);
+    _state.startDate = new Date().toISOString().slice(0, 10);
     _save();
   }
 })();

@@ -18,20 +18,23 @@
   // Initialize router (handles initial hash)
   initRouter();
 
-  // If there's a pending session in state (app closed mid-session), resume it
+  // First-run check: redirect to onboarding if not completed
   const state = getState();
-  if (state.pendingSession) {
-    const { week, dayKey } = state.pendingSession;
-    // Don't auto-resume; just clear so user can restart cleanly
-    patchState({ pendingSession: null });
+  if (!state.onboardingComplete) {
+    // Don't interrupt if already on onboarding
+    const hash = window.location.hash.replace('#', '');
+    if (hash !== 'onboarding') {
+      window.location.hash = '#onboarding';
+    }
+  } else {
+    // Clear any stale pending session from a previous crash
+    if (state.pendingSession) {
+      patchState({ pendingSession: null });
+    }
   }
 
-  // Handle Google Fonts offline fallback gracefully (already using system fonts as fallback in CSS)
-  console.log('[RP] Reactive Plyometrics loaded. State version:', state.version);
+  console.log('[RP] Reactive Plyometrics v2 loaded. State version:', state.version);
 })();
-
-/* ── Service Worker (optional, for offline support) ── */
-// No service worker needed per requirements (localStorage only)
 
 /* ── Prevent double-tap zoom on mobile ── */
 let lastTouch = 0;

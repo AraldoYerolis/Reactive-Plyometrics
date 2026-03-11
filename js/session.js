@@ -26,19 +26,24 @@ let _restTimer = null;
 
 /* ── Public entry point ── */
 function startWorkoutSession(week, dayKey) {
-  _sess = getSession(week, dayKey);
+  // Use dynamic program if available, fall back to static SCHEDULE
+  const prog = getState().program;
+  _sess = prog
+    ? getDynamicSession(prog, week, dayKey)
+    : getSession(week, dayKey);
 
-  // Requirement 1: default to first scheduled workout if none found for given params
+  // Default to first scheduled workout if none found
   if (!_sess) {
-    const all = getAllSessions();
+    const all = prog ? getDynamicSessions(prog) : getAllSessions();
     for (const s of all) {
-      _sess = getSession(s.week, s.dayKey);
+      _sess = prog
+        ? getDynamicSession(prog, s.week, s.dayKey)
+        : getSession(s.week, s.dayKey);
       if (_sess) break;
     }
   }
 
   if (!_sess) {
-    // Schedule is empty – show fallback rather than blank screen
     renderSessionScreen();
     return;
   }
@@ -56,9 +61,7 @@ function startWorkoutSession(week, dayKey) {
     figPlaying: true,
   };
 
-  // Mark pending session
   patchState({ pendingSession: { week: _sess.week, dayKey: _sess.dayKey } });
-
   renderSessionScreen();
 }
 
@@ -625,8 +628,9 @@ function renderSummary(el) {
   document.getElementById('summary-done-btn').addEventListener('click', () => {
     patchState({ pendingSession: null });
     if (badge) {
+      // Badge earned → celebration → cycle complete screen
       showBadgeCelebration(badge.cycle, () => {
-        window.location.hash = '#home';
+        navigate('cycle-complete', { cycle: badge.cycle });
       });
     } else {
       window.location.hash = '#home';
@@ -637,7 +641,7 @@ function renderSummary(el) {
   if (badge) {
     setTimeout(() => {
       showBadgeCelebration(badge.cycle, () => {
-        window.location.hash = '#home';
+        navigate('cycle-complete', { cycle: badge.cycle });
       });
     }, 1500);
   }

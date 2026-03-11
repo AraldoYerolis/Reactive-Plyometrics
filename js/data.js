@@ -157,13 +157,38 @@ const WEEK_DEFAULTS = {
   12:{ sets: 4, jumpReps: 12, boundReps: 12,timedDur: 60 },
 };
 
-function getExSets(week, exId) {
-  const d = WEEK_DEFAULTS[week] || WEEK_DEFAULTS[1];
+function getExSets(week, exId, weekDefaultsOverride) {
+  const wd = weekDefaultsOverride || WEEK_DEFAULTS;
+  const d  = wd[week] || wd[1] || { sets: 3, jumpReps: 8, boundReps: 6, timedDur: 30 };
   const ex = EXERCISES[exId];
   if (!ex) return { sets: 3, reps: 8 };
   if (ex.type === 'timed') return { sets: d.sets, duration: d.timedDur };
   const jumpIds = ['squat-jump','box-jump','broad-jump','depth-jump','hurdle-hop'];
   return { sets: d.sets, reps: jumpIds.includes(exId) ? d.jumpReps : d.boundReps };
+}
+
+/* ── Dynamic program helpers (used when a generated program is active) ── */
+
+function getDynamicSession(program, week, dayKey) {
+  const sched = (program.weeks || {})[week];
+  if (!sched || !sched[dayKey]) return null;
+  const raw = sched[dayKey];
+  const wd  = program.weekDefaults;
+  const exercises   = raw.exercises.map(id => ({ ...EXERCISES[id], ...getExSets(week, id, wd) }));
+  const extraCredit = (raw.extraCredit || []).map(id => ({ ...EXERCISES[id], ...getExSets(week, id, wd) }));
+  return { week, dayKey, exercises, extraCredit, phase: getPhase(week) };
+}
+
+function getDynamicSessions(program) {
+  const sessions = [];
+  const weeks = program.weeks || {};
+  for (let w = 1; w <= 12; w++) {
+    const sched = weeks[w] || {};
+    ALL_DAYS.forEach(day => {
+      if (sched[day]) sessions.push({ week: w, dayKey: day });
+    });
+  }
+  return sessions;
 }
 
 /* ── 12-Week Schedule ──
