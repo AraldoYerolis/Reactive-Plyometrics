@@ -44,16 +44,14 @@ function navigate(screenId, params = {}) {
     case 'cycle-complete': renderCycleComplete(params); break;
     case 'session':
       try {
-        if (params.week && params.dayKey) {
-          startWorkoutSession(params.week, params.dayKey);
-        } else {
-          // No specific session params — start the next incomplete workout
-          const next = getUpcomingSessions(1);
-          const target2 = next.length ? next[0] : getAllSessions()[0];
-          if (target2) {
-            startWorkoutSession(target2.week, target2.dayKey);
+        const ok = startWorkoutSession(params.week, params.dayKey);
+        if (!ok) {
+          const prog = getState().program;
+          const all = prog ? getDynamicSessions(prog) : getAllSessions();
+          if (all.length) {
+            startWorkoutSession(all[0].week, all[0].dayKey);
           } else {
-            startWorkoutSession(null, null); // triggers fallback UI
+            window.location.hash = '#home';
           }
         }
       } catch (e) {
