@@ -42,23 +42,14 @@ function navigate(screenId, params = {}) {
     case 'settings':       renderSettings();       break;
     case 'onboarding':     renderOnboarding();     break;
     case 'cycle-complete': renderCycleComplete(params); break;
-    case 'session':
-      try {
-        const ok = startWorkoutSession(params.week, params.dayKey);
-        if (!ok) {
-          const prog = getState().program;
-          const all = prog ? getDynamicSessions(prog) : getAllSessions();
-          if (all.length) {
-            startWorkoutSession(all[0].week, all[0].dayKey);
-          } else {
-            window.location.hash = '#home';
-          }
-        }
-      } catch (e) {
-        console.error(e);
-        window.location.hash = '#home';
+    case 'session': {
+      const prog = getState().program;
+      const all = prog ? getDynamicSessions(prog) : getAllSessions();
+      if (all.length) {
+        startWorkoutSession(all[0].week, all[0].dayKey);
       }
       break;
+    }
     case 'warmup': /* handled by session flow */ break;
   }
 
