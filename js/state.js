@@ -17,7 +17,9 @@ const DEFAULT_STATE = {
   pendingSession: null,      // { week, dayKey } – session in progress
   profile: {
     experienceLevel: 'beginner', // beginner | intermediate | advanced | elite
-    goal: 'general',             // speed | power | agility | general
+    goal: 'general',             // speed | power | agility | general | crossfit
+    workoutStyle: 'plyometrics', // plyometrics | crossfit
+    hasGhd: true,                // GHD machine available
     daysPerWeek: 3,
     selectedDays: ['Mon', 'Wed', 'Fri'],
   },
@@ -198,7 +200,10 @@ function startNewCycle() {
   _state.completedSessions = {};
 
   // Generate new program with incremented cycle number
-  const newProgram = generateProgram({ ...profile, cycleNum });
+  const isCrossfit = (profile.workoutStyle === 'crossfit');
+  const newProgram = isCrossfit
+    ? generateCrossfitProgram({ hasGhd: profile.hasGhd !== false, cycleNum })
+    : generateProgram({ ...profile, cycleNum });
   _state.program  = newProgram;
   _save();
   return newProgram;

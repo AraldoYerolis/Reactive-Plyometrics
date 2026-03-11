@@ -1562,3 +1562,203 @@
   color: var(--phase1);
   font-weight: 700;
 }
+
+/* ============================================================
+   AMRAP SESSION STYLES
+   ============================================================ */
+
+.amrap-screen {
+  padding: var(--space-md) var(--space-md) 100px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.amrap-title {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-align: center;
+  background: var(--gradient-purple-pink);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-top: var(--space-sm);
+}
+
+.amrap-timer-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg) var(--space-md);
+  text-align: center;
+}
+
+.amrap-timer-display {
+  font-family: var(--font-display);
+  font-size: 4rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.amrap-timer-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-md);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.amrap-timer-btns {
+  display: flex;
+  justify-content: center;
+}
+
+.amrap-start-btn {
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+}
+
+.amrap-movements-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+}
+
+.amrap-movements-header {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--space-sm);
+}
+
+.amrap-movement-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.amrap-movement-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.amrap-movement-label {
+  flex: 1;
+}
+
+.amrap-rounds-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  text-align: center;
+}
+
+.amrap-rounds-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--space-md);
+}
+
+.amrap-rounds-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xl);
+}
+
+.amrap-rounds-num {
+  font-family: var(--font-display);
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  min-width: 80px;
+  text-align: center;
+  line-height: 1;
+}
+
+.amrap-round-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-bright);
+  font-size: 1.8rem;
+  font-weight: 300;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.amrap-round-btn:active {
+  transform: scale(0.92);
+  background: var(--bg-lift);
+}
+
+/* ── GHD toggle in onboarding ── */
+.onb-equipment-section {
+  margin: var(--space-md) 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+}
+
+.onb-equipment-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+.onb-ghd-toggle {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.ghd-btn {
+  flex: 1;
+  padding: 10px var(--space-sm);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-bright);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  transition: all var(--transition-fast);
+}
+
+.ghd-btn.active {
+  background: rgba(139,92,246,0.15);
+  border-color: var(--accent-purple);
+  color: var(--text-primary);
+}
+
+/* ── CrossFit goal card highlight ── */
+.onb-card[data-key="crossfit"] {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.onb-card[data-key="crossfit"].selected {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}

@@ -94,18 +94,23 @@ function _renderWeekDays(week, prog) {
       classes += ' rest';
     }
 
-    const exCount = hasWorkout ? sched[day].exercises.length : 0;
-    const label   = DAY_LABELS[day] || day.slice(0, 1);
+    const dayData   = hasWorkout ? sched[day] : null;
+    const isAmrap   = dayData && dayData.type === 'amrap';
+    const exCount   = !isAmrap && dayData ? (dayData.exercises || []).length : 0;
+    const amrapMin  = isAmrap ? Math.floor(dayData.timeCap / 60) : 0;
+    const label     = DAY_LABELS[day] || day.slice(0, 1);
+    const cellLabel = isAmrap ? `${amrapMin}m` : `${exCount}ex`;
+    const ariaInfo  = isAmrap ? `, ${amrapMin}-min AMRAP` : (hasWorkout ? `, ${exCount} exercises` : ', Rest day');
 
     html += `
       <div class="${classes}"
            data-week="${week}" data-day="${day}"
-           aria-label="${day} Week ${week}${hasWorkout ? ', ' + exCount + ' exercises' : ', Rest day'}">
+           aria-label="${day} Week ${week}${ariaInfo}">
         <span class="day-num">${label}</span>
         ${done
           ? '<span class="day-check">✓</span>'
           : (hasWorkout
-            ? `<span class="day-name">${exCount}ex</span>`
+            ? `<span class="day-name">${cellLabel}</span>`
             : '<span class="day-name">rest</span>')}
       </div>
     `;
@@ -140,22 +145,37 @@ function _toggleDayDetail(week, dayKey, cellEl, prog) {
   const phase = session.phase;
   const done  = isSessionComplete(week, dayKey);
 
-  const exList = session.exercises.map(ex =>
-    `<li>
-       <span class="ex-name">${ex.name}</span>
-       <span class="ex-sets">${fmtExercise(ex)}</span>
-     </li>`
-  ).join('');
-
-  const ecList = session.extraCredit.length ? `
-    <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border);">
-      <span class="label-sm" style="color:var(--accent-purple); margin-bottom:6px; display:block;">Extra Credit</span>
-      ${session.extraCredit.map(ex =>
-        `<div style="display:flex; justify-content:space-between; padding:4px 0; font-size:0.8rem; color:var(--text-secondary);">
-           <span>${ex.name}</span><span>${fmtExercise(ex)}</span>
-         </div>`
-      ).join('')}
-    </div>` : '';
+  let bodyHtml;
+  if (session.type === 'amrap') {
+    const totalMin = Math.floor(session.timeCap / 60);
+    const movList = (session.movements || []).map(m =>
+      `<li>
+         <span class="ex-name">${fmtMovement(m)}</span>
+       </li>`
+    ).join('');
+    bodyHtml = `
+      <div style="margin-bottom:8px;">
+        <span class="label-sm" style="color:var(--accent-pink);">${totalMin} MIN AMRAP</span>
+      </div>
+      <ul class="day-detail-exercises">${movList}</ul>`;
+  } else {
+    const exList = session.exercises.map(ex =>
+      `<li>
+         <span class="ex-name">${ex.name}</span>
+         <span class="ex-sets">${fmtExercise(ex)}</span>
+       </li>`
+    ).join('');
+    const ecList = session.extraCredit.length ? `
+      <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border);">
+        <span class="label-sm" style="color:var(--accent-purple); margin-bottom:6px; display:block;">Extra Credit</span>
+        ${session.extraCredit.map(ex =>
+          `<div style="display:flex; justify-content:space-between; padding:4px 0; font-size:0.8rem; color:var(--text-secondary);">
+             <span>${ex.name}</span><span>${fmtExercise(ex)}</span>
+           </div>`
+        ).join('')}
+      </div>` : '';
+    bodyHtml = `<ul class="day-detail-exercises">${exList}</ul>${ecList}`;
+  }
 
   const panel = document.createElement('div');
   panel.className = 'day-detail-panel';
@@ -170,8 +190,7 @@ function _toggleDayDetail(week, dayKey, cellEl, prog) {
         : `<button class="btn-primary" style="width:auto; padding:10px 20px; font-size:0.875rem;"
                    onclick="startSession(${week},'${dayKey}')">Start</button>`}
     </div>
-    <ul class="day-detail-exercises">${exList}</ul>
-    ${ecList}
+    ${bodyHtml}
   `;
 
   gridEl.appendChild(panel);

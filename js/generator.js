@@ -175,6 +175,48 @@ function generateProgram({ experienceLevel, goal, daysPerWeek, selectedDays, cyc
   };
 }
 
+/* ── CrossFit program: wraps CROSSFIT_SCHEDULE into the standard program format ── */
+function generateCrossfitProgram({ hasGhd = true, cycleNum = 1 }) {
+  const weeks = {};
+  const weekDefaults = {};
+
+  for (let w = 1; w <= 12; w++) {
+    const sched = CROSSFIT_SCHEDULE[w] || {};
+    const weekSched = {};
+
+    Object.keys(sched).forEach(day => {
+      const raw = sched[day];
+      const movements = raw.movements.map(m => {
+        if (!hasGhd && m.altId) {
+          return { ...m, id: m.altId, altId: undefined };
+        }
+        return { ...m };
+      });
+      weekSched[day] = {
+        type: 'amrap',
+        timeCap: raw.timeCap,
+        movements,
+      };
+    });
+
+    weeks[w] = weekSched;
+
+    // Week defaults still needed for badge/session-count helpers
+    weekDefaults[w] = WEEK_DEFAULTS[w] || WEEK_DEFAULTS[1];
+  }
+
+  return {
+    weeks,
+    weekDefaults,
+    metadata: {
+      workoutStyle: 'crossfit',
+      hasGhd,
+      cycleNum,
+      generatedAt: Date.now(),
+    },
+  };
+}
+
 /* ── Describe what changes next cycle (for cycle-complete screen) ── */
 function describeNextCycle(cycleNum, profile) {
   const level  = profile.experienceLevel || 'beginner';

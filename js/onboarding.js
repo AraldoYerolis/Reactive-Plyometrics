@@ -12,6 +12,7 @@ let _picks = {
   goal: null,
   daysPerWeek: 3,
   selectedDays: ['Mon', 'Wed', 'Fri'],
+  hasGhd: true,
 };
 
 const LEVEL_INFO = [
@@ -26,6 +27,7 @@ const GOAL_INFO = [
   { key: 'power',   label: 'Power',   icon: '💥', desc: 'Jump higher · Move more force' },
   { key: 'agility', label: 'Agility', icon: '🌀', desc: 'Change direction · React faster' },
   { key: 'general', label: 'General', icon: '🏅', desc: 'Balanced athletic performance' },
+  { key: 'crossfit', label: 'CrossFit AMRAP', icon: '🔥', desc: 'Run · Bench · Pull-ups · KB Swings · 5 days/week', style: 'crossfit' },
 ];
 
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -167,6 +169,11 @@ function _renderGoal(el) {
     const card = e.target.closest('.onb-card');
     if (!card) return;
     _picks.goal = card.dataset.key;
+    // CrossFit defaults to 5 days Mon–Fri
+    if (_picks.goal === 'crossfit') {
+      _picks.daysPerWeek  = 5;
+      _picks.selectedDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    }
     document.querySelectorAll('#goal-cards .onb-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
     const btn = document.getElementById('onb-next');
@@ -290,6 +297,23 @@ function _renderGenerate(el) {
   const levelLabel = (LEVEL_INFO.find(l => l.key === _picks.experienceLevel) || {}).label || '—';
   const goalLabel  = (GOAL_INFO.find(g => g.key === _picks.goal) || {}).label || '—';
   const daysStr    = _picks.selectedDays.join(' · ');
+  const isCrossfit = _picks.goal === 'crossfit';
+
+  const ghdSection = isCrossfit ? `
+    <div class="onb-equipment-section">
+      <div class="onb-equipment-label">GHD Machine available?</div>
+      <div class="onb-ghd-toggle">
+        <button class="ghd-btn${_picks.hasGhd ? ' active' : ''}" id="ghd-yes">Yes — use GHD sit-ups</button>
+        <button class="ghd-btn${!_picks.hasGhd ? ' active' : ''}" id="ghd-no">No — use Ab-Mat sit-ups</button>
+      </div>
+      <p class="onb-step-sub" style="font-size:0.78rem; margin-top:6px;">
+        You can change this later in Settings.
+      </p>
+    </div>` : '';
+
+  const phaseLabel1 = isCrossfit ? '20–30 min' : 'Foundation';
+  const phaseLabel2 = isCrossfit ? '30–40 min' : 'Development';
+  const phaseLabel3 = isCrossfit ? '40–50 min' : 'Peak';
 
   el.innerHTML = `
     <div class="onb-screen">
@@ -298,6 +322,10 @@ function _renderGenerate(el) {
       <p class="onb-step-sub">Everything looks good — let's generate your custom 12-week plan.</p>
 
       <div class="onb-summary-card">
+        <div class="onb-summary-row">
+          <span class="onb-summary-label">Style</span>
+          <span class="onb-summary-value">${isCrossfit ? 'CrossFit AMRAP' : 'Plyometrics'}</span>
+        </div>
         <div class="onb-summary-row">
           <span class="onb-summary-label">Level</span>
           <span class="onb-summary-value">${levelLabel}</span>
@@ -316,12 +344,14 @@ function _renderGenerate(el) {
         </div>
       </div>
 
+      ${ghdSection}
+
       <div class="onb-program-preview">
         <div class="onb-preview-label">Program preview</div>
         <div class="onb-preview-phases">
-          <div class="onb-phase-chip p1">Weeks 1–4<br><span>Foundation</span></div>
-          <div class="onb-phase-chip p2">Weeks 5–8<br><span>Development</span></div>
-          <div class="onb-phase-chip p3">Weeks 9–12<br><span>Peak</span></div>
+          <div class="onb-phase-chip p1">Weeks 1–4<br><span>${phaseLabel1}</span></div>
+          <div class="onb-phase-chip p2">Weeks 5–8<br><span>${phaseLabel2}</span></div>
+          <div class="onb-phase-chip p3">Weeks 9–12<br><span>${phaseLabel3}</span></div>
         </div>
       </div>
 
@@ -329,6 +359,19 @@ function _renderGenerate(el) {
       <button class="btn-ghost onb-back" id="onb-back">← Back</button>
     </div>
   `;
+
+  if (isCrossfit) {
+    document.getElementById('ghd-yes').addEventListener('click', () => {
+      _picks.hasGhd = true;
+      document.getElementById('ghd-yes').classList.add('active');
+      document.getElementById('ghd-no').classList.remove('active');
+    });
+    document.getElementById('ghd-no').addEventListener('click', () => {
+      _picks.hasGhd = false;
+      document.getElementById('ghd-no').classList.add('active');
+      document.getElementById('ghd-yes').classList.remove('active');
+    });
+  }
 
   document.getElementById('onb-generate').addEventListener('click', () => {
     _finishOnboarding();
@@ -342,14 +385,19 @@ function _renderGenerate(el) {
 
 /* ── Finish: generate program, save state, navigate home ── */
 function _finishOnboarding() {
+  const isCrossfit = _picks.goal === 'crossfit';
   const profile = {
     experienceLevel: _picks.experienceLevel || 'beginner',
     goal:            _picks.goal            || 'general',
-    daysPerWeek:     _picks.daysPerWeek     || 3,
+    workoutStyle:    isCrossfit ? 'crossfit' : 'plyometrics',
+    hasGhd:          _picks.hasGhd !== false,
+    daysPerWeek:     _picks.daysPerWeek     || (isCrossfit ? 5 : 3),
     selectedDays:    [..._picks.selectedDays],
   };
 
-  const program = generateProgram({ ...profile, cycleNum: 1 });
+  const program = isCrossfit
+    ? generateCrossfitProgram({ hasGhd: profile.hasGhd, cycleNum: 1 })
+    : generateProgram({ ...profile, cycleNum: 1 });
 
   patchState({
     onboardingComplete: true,

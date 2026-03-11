@@ -11,6 +11,7 @@
 let _sess = null;   // current session data (from getSession)
 let _state = {      // session state machine
   phase: 'WARMUP',  // WARMUP | EXERCISE_INTRO | SET_ACTIVE | SET_REST | EXTRA_CREDIT_PROMPT | SESSION_SUMMARY
+                    // AMRAP_ACTIVE | AMRAP_SUMMARY (CrossFit AMRAP sessions)
   exIdx: 0,         // current exercise index
   setIdx: 0,        // current set (0-based)
   isExtraCredit: false,
@@ -20,6 +21,8 @@ let _state = {      // session state machine
   completedExercises: [],
   startTime: null,
   figPlaying: true,
+  amrapRounds: 0,   // completed full rounds (AMRAP sessions)
+  amrapStarted: false,
 };
 let _timer = null;
 let _restTimer = null;
@@ -119,6 +122,8 @@ function renderSessionScreen() {
     case 'SET_REST':            return renderSetRest(el);
     case 'EXTRA_CREDIT_PROMPT': return renderExtraCreditPrompt(el);
     case 'SESSION_SUMMARY':     return renderSummary(el);
+    case 'AMRAP_ACTIVE':        return renderAmrapActive(el);
+    case 'AMRAP_SUMMARY':       return renderAmrapSummary(el);
     default:
       // Unknown phase — reset to warmup instead of going blank
       _state.phase = 'WARMUP';
@@ -172,7 +177,7 @@ function renderWarmup(el) {
 
   document.getElementById('wu-btn').addEventListener('click', () => {
     if (allDone) {
-      _state.phase = 'EXERCISE_INTRO';
+      _state.phase = _sess.type === 'amrap' ? 'AMRAP_ACTIVE' : 'EXERCISE_INTRO';
       renderSessionScreen();
     } else {
       // Mark current as done and animate
@@ -188,7 +193,7 @@ function renderWarmup(el) {
   });
 
   document.getElementById('wu-skip').addEventListener('click', () => {
-    _state.phase = 'EXERCISE_INTRO';
+    _state.phase = _sess.type === 'amrap' ? 'AMRAP_ACTIVE' : 'EXERCISE_INTRO';
     renderSessionScreen();
   });
 }
@@ -653,6 +658,223 @@ function renderSummary(el) {
   });
 
   // Auto-show badge celebration if earned
+  if (badge) {
+    setTimeout(() => {
+      showBadgeCelebration(badge.cycle, () => {
+        navigate('cycle-complete', { cycle: badge.cycle });
+      });
+    }, 1500);
+  }
+}
+
+/* ─────────────────────── AMRAP ACTIVE ─────────────────────── */
+let _amrapTimer = null;
+
+function renderAmrapActive(el) {
+  clearInterval(_phaseInterval);
+  if (_restTimer) { _restTimer.stop(); _restTimer = null; }
+
+  const timeCap = _sess.timeCap;
+  const movements = _sess.movements || [];
+
+  const movementList = movements.map(m => {
+    const label = m.dist ? `${m.dist}m ${m.name || 'Run'}` : `${m.reps} ${m.name || m.id}`;
+    return `
+      <div class="amrap-movement-row">
+        <span class="amrap-movement-label">${label}</span>
+      </div>`;
+  }).join('');
+
+  const totalMin = Math.floor(timeCap / 60);
+
+  el.innerHTML = `
+    <div class="session-progress-bar">
+      <div class="session-progress-fill" id="amrap-progress-fill" style="width:0%"></div>
+    </div>
+    <div class="session-header">
+      <button class="btn-ghost" id="amrap-back">← Back</button>
+      <span class="session-counter">Week ${_sess.week} · ${_sess.dayKey}</span>
+      <span class="phase-pill ${_sess.phase.label}">${_sess.phase.name}</span>
+    </div>
+
+    <div class="amrap-screen">
+      <div class="amrap-title">${totalMin} MINUTE AMRAP</div>
+
+      <!-- Countdown timer -->
+      <div class="amrap-timer-wrap">
+        <div class="amrap-timer-display" id="amrap-time">${_fmtAmrapTime(timeCap)}</div>
+        <div class="amrap-timer-sub" id="amrap-timer-status">Tap START to begin</div>
+        <div class="amrap-timer-btns">
+          <button class="btn-primary amrap-start-btn" id="amrap-toggle" style="width:auto; padding:12px 32px;">
+            START
+          </button>
+        </div>
+      </div>
+
+      <!-- Movement list -->
+      <div class="amrap-movements-card">
+        <div class="amrap-movements-header">MOVEMENTS PER ROUND</div>
+        ${movementList}
+      </div>
+
+      <!-- Round counter -->
+      <div class="amrap-rounds-card">
+        <div class="amrap-rounds-label">ROUNDS COMPLETED</div>
+        <div class="amrap-rounds-row">
+          <button class="amrap-round-btn" id="amrap-minus">−</button>
+          <div class="amrap-rounds-num" id="amrap-rounds">${_state.amrapRounds}</div>
+          <button class="amrap-round-btn" id="amrap-plus">+</button>
+        </div>
+      </div>
+
+      <button class="btn-secondary" id="amrap-finish" style="margin-top:var(--space-lg);">
+        Finish Workout
+      </button>
+    </div>
+  `;
+
+  // Wire timer toggle
+  let timerStarted = _state.amrapStarted;
+  const toggleBtn = document.getElementById('amrap-toggle');
+  const statusEl  = document.getElementById('amrap-timer-status');
+
+  const _updateTimerDisplay = (rem) => {
+    const el2 = document.getElementById('amrap-time');
+    if (el2) el2.textContent = _fmtAmrapTime(rem);
+    const fillEl = document.getElementById('amrap-progress-fill');
+    if (fillEl) fillEl.style.width = `${Math.round(((timeCap - rem) / timeCap) * 100)}%`;
+  };
+
+  if (_amrapTimer) { _amrapTimer.stop(); _amrapTimer = null; }
+  _amrapTimer = new CountdownTimer({
+    totalSeconds: timeCap,
+    ringId: 'amrap-hidden',
+    onTick: (rem) => _updateTimerDisplay(rem),
+    onComplete: () => {
+      if (statusEl) statusEl.textContent = "Time's up!";
+      if (toggleBtn) toggleBtn.textContent = 'DONE';
+    },
+  });
+
+  if (timerStarted) {
+    _amrapTimer.start();
+    if (toggleBtn) toggleBtn.textContent = 'PAUSE';
+    if (statusEl) statusEl.textContent = 'Timer running';
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    if (!timerStarted) {
+      timerStarted = true;
+      _state.amrapStarted = true;
+      _amrapTimer.start();
+      toggleBtn.textContent = 'PAUSE';
+      if (statusEl) statusEl.textContent = 'Timer running';
+    } else if (_amrapTimer.isRunning()) {
+      _amrapTimer.pause();
+      toggleBtn.textContent = 'RESUME';
+      if (statusEl) statusEl.textContent = 'Paused';
+    } else {
+      _amrapTimer.resume();
+      toggleBtn.textContent = 'PAUSE';
+      if (statusEl) statusEl.textContent = 'Timer running';
+    }
+  });
+
+  document.getElementById('amrap-minus').addEventListener('click', () => {
+    if (_state.amrapRounds > 0) {
+      _state.amrapRounds--;
+      const el2 = document.getElementById('amrap-rounds');
+      if (el2) el2.textContent = _state.amrapRounds;
+    }
+  });
+
+  document.getElementById('amrap-plus').addEventListener('click', () => {
+    _state.amrapRounds++;
+    const el2 = document.getElementById('amrap-rounds');
+    if (el2) el2.textContent = _state.amrapRounds;
+  });
+
+  document.getElementById('amrap-finish').addEventListener('click', () => {
+    if (_amrapTimer) { _amrapTimer.stop(); _amrapTimer = null; }
+    _state.phase = 'AMRAP_SUMMARY';
+    renderSessionScreen();
+  });
+
+  document.getElementById('amrap-back').addEventListener('click', () => {
+    if (_amrapTimer) { _amrapTimer.stop(); _amrapTimer = null; }
+    _state.phase = 'WARMUP';
+    renderSessionScreen();
+  });
+}
+
+function _fmtAmrapTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+/* ─────────────────────── AMRAP SUMMARY ─────────────────────── */
+function renderAmrapSummary(el) {
+  const duration = Math.round((Date.now() - _state.startTime) / 60000);
+
+  markSessionComplete(_sess.week, _sess.dayKey, false);
+  const badge = checkAndAwardBadge();
+
+  const movementList = (_sess.movements || []).map(m => {
+    const label = m.dist ? `${m.dist}m ${m.name || 'Run'}` : `${m.reps} ${m.name || m.id}`;
+    return `
+      <div class="completed-ex-item">
+        <span class="completed-check">✓</span>
+        <span>${label}</span>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="session-progress-bar">
+      <div class="session-progress-fill" style="width:100%"></div>
+    </div>
+    <div class="summary-screen">
+      <div class="summary-emoji">🏆</div>
+      <h1 class="display-lg gradient-text">Session Complete!</h1>
+      <p style="color:var(--text-secondary); margin-top:8px;">Week ${_sess.week}, ${_sess.dayKey} · ${_sess.phase.name}</p>
+
+      <div class="summary-stats-grid">
+        <div class="summary-stat">
+          <div class="summary-stat-num">${duration}<span style="font-size:1rem;">m</span></div>
+          <div class="summary-stat-label">Duration</div>
+        </div>
+        <div class="summary-stat">
+          <div class="summary-stat-num">${_state.amrapRounds}</div>
+          <div class="summary-stat-label">Rounds</div>
+        </div>
+        <div class="summary-stat">
+          <div class="summary-stat-num">${Math.floor(_sess.timeCap / 60)}</div>
+          <div class="summary-stat-label">Min Cap</div>
+        </div>
+      </div>
+
+      <div class="completed-exercises-list">
+        <div class="section-title">Movements</div>
+        ${movementList}
+      </div>
+
+      <button class="btn-primary" id="amrap-summary-done">
+        Back to Home
+      </button>
+    </div>
+  `;
+
+  document.getElementById('amrap-summary-done').addEventListener('click', () => {
+    patchState({ pendingSession: null });
+    if (badge) {
+      showBadgeCelebration(badge.cycle, () => {
+        navigate('cycle-complete', { cycle: badge.cycle });
+      });
+    } else {
+      window.location.hash = '#home';
+    }
+  });
+
   if (badge) {
     setTimeout(() => {
       showBadgeCelebration(badge.cycle, () => {
