@@ -129,10 +129,10 @@ input, textarea { font-family: inherit; }
   display: none;
   min-height: calc(100vh - var(--nav-height));
   min-height: calc(100dvh - var(--nav-height));
-  animation: screenFadeIn var(--transition-md) both;
 }
 .screen.active {
   display: block;
+  animation: screenFadeIn var(--transition-md) both;
 }
 
 @keyframes screenFadeIn {
@@ -177,9 +177,9 @@ input, textarea { font-family: inherit; }
 /* --- Color Utilities --- */
 .text-muted { color: var(--text-muted); }
 .text-secondary { color: var(--text-secondary); }
-.text-phase1 { color: var(--phase1); }
-.text-phase2 { color: var(--phase2); }
-.text-phase3 { color: var(--phase3); }
+.text-phase1, .text-p1 { color: var(--phase1); }
+.text-phase2, .text-p2 { color: var(--phase2); }
+.text-phase3, .text-p3 { color: var(--phase3); }
 .text-purple { color: var(--accent-purple); }
 .text-pink { color: var(--accent-pink); }
 

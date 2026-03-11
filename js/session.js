@@ -48,6 +48,10 @@ function startWorkoutSession(week, dayKey) {
     return;
   }
 
+  // Clear any stale rest timer from a previous session
+  if (_restTimer) { _restTimer.stop(); _restTimer = null; }
+  if (_timer) { _timer.stop(); _timer = null; }
+
   _state = {
     phase: 'WARMUP',
     exIdx: 0,
@@ -117,6 +121,7 @@ function renderSessionScreen() {
 
 /* ─────────────────────────── WARMUP ─────────────────────────── */
 function renderWarmup(el) {
+  if (_restTimer) { _restTimer.stop(); _restTimer = null; }
   if (_timer) { _timer.stop(); _timer = null; }
 
   const items = WARMUP_EXERCISES.map((wu, i) => `
@@ -183,6 +188,7 @@ function renderWarmup(el) {
 
 /* ─────────────────────── EXERCISE INTRO ─────────────────────── */
 function renderExercise(el) {
+  if (_restTimer) { _restTimer.stop(); _restTimer = null; }
   if (_timer) { _timer.stop(); _timer = null; }
 
   // Requirement 2: defensive access before touching exercise arrays
@@ -320,6 +326,7 @@ function _startPhaseRotation(ex) {
 /* ─────────────────────── SET ACTIVE ─────────────────────── */
 function renderSetActive(el) {
   clearInterval(_phaseInterval);
+  if (_restTimer) { _restTimer.stop(); _restTimer = null; }
   if (_timer) { _timer.stop(); _timer = null; }
 
   // Requirement 2: defensive access before touching exercise arrays
@@ -472,6 +479,7 @@ function renderSetActive(el) {
 function renderSetRest(el) {
   clearInterval(_phaseInterval);
   if (_timer) { _timer.stop(); _timer = null; }
+  if (_restTimer) { _restTimer.stop(); _restTimer = null; }
 
   const exercises = _state.isExtraCredit ? _sess.extraCredit : _sess.exercises;
   const ex = exercises[_state.exIdx];
