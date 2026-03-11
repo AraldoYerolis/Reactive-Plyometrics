@@ -27,7 +27,21 @@ let _restTimer = null;
 /* ── Public entry point ── */
 function startWorkoutSession(week, dayKey) {
   _sess = getSession(week, dayKey);
-  if (!_sess) { window.location.hash = '#calendar'; return; }
+
+  // Requirement 1: default to first scheduled workout if none found for given params
+  if (!_sess) {
+    const all = getAllSessions();
+    for (const s of all) {
+      _sess = getSession(s.week, s.dayKey);
+      if (_sess) break;
+    }
+  }
+
+  if (!_sess) {
+    // Schedule is empty – show fallback rather than blank screen
+    renderSessionScreen();
+    return;
+  }
 
   _state = {
     phase: 'WARMUP',
@@ -43,7 +57,7 @@ function startWorkoutSession(week, dayKey) {
   };
 
   // Mark pending session
-  patchState({ pendingSession: { week, dayKey } });
+  patchState({ pendingSession: { week: _sess.week, dayKey: _sess.dayKey } });
 
   renderSessionScreen();
 }
@@ -53,13 +67,48 @@ function renderSessionScreen() {
   const el = document.getElementById('screen-session');
   if (!el) return;
 
+  // Requirement 4: always render something — never leave screen blank
+  if (!_sess) {
+    el.innerHTML = `
+      <div style="padding:var(--space-xl); text-align:center; margin-top:var(--space-xl);">
+        <div style="font-size:3rem; margin-bottom:var(--space-md);">🏋️</div>
+        <h2 class="display-md" style="margin-bottom:var(--space-md);">No workout loaded</h2>
+        <p style="color:var(--text-secondary); margin-bottom:var(--space-xl);">
+          Choose a session from the calendar to get started.
+        </p>
+        <button class="btn-primary" onclick="window.location.hash='#calendar'">Open Calendar</button>
+      </div>
+    `;
+    return;
+  }
+
+  // Requirement 3: initialize state safely if missing or corrupted
+  if (!_state || !_state.phase) {
+    _state = {
+      phase: 'WARMUP',
+      exIdx: 0,
+      setIdx: 0,
+      isExtraCredit: false,
+      extraCreditDone: false,
+      warmupDone: false,
+      warmupIdx: 0,
+      completedExercises: [],
+      startTime: Date.now(),
+      figPlaying: true,
+    };
+  }
+
   switch (_state.phase) {
-    case 'WARMUP':             return renderWarmup(el);
-    case 'EXERCISE_INTRO':     return renderExercise(el);
-    case 'SET_ACTIVE':         return renderSetActive(el);
-    case 'SET_REST':           return renderSetRest(el);
-    case 'EXTRA_CREDIT_PROMPT':return renderExtraCreditPrompt(el);
-    case 'SESSION_SUMMARY':    return renderSummary(el);
+    case 'WARMUP':              return renderWarmup(el);
+    case 'EXERCISE_INTRO':      return renderExercise(el);
+    case 'SET_ACTIVE':          return renderSetActive(el);
+    case 'SET_REST':            return renderSetRest(el);
+    case 'EXTRA_CREDIT_PROMPT': return renderExtraCreditPrompt(el);
+    case 'SESSION_SUMMARY':     return renderSummary(el);
+    default:
+      // Unknown phase — reset to warmup instead of going blank
+      _state.phase = 'WARMUP';
+      return renderWarmup(el);
   }
 }
 
@@ -133,7 +182,10 @@ function renderWarmup(el) {
 function renderExercise(el) {
   if (_timer) { _timer.stop(); _timer = null; }
 
-  const exercises = _state.isExtraCredit ? _sess.extraCredit : _sess.exercises;
+  // Requirement 2: defensive access before touching exercise arrays
+  const exercises = _state.isExtraCredit
+    ? (_sess.extraCredit || [])
+    : (_sess.exercises || []);
   const ex = exercises[_state.exIdx];
   if (!ex) {
     // End of exercises
@@ -148,7 +200,11 @@ function renderExercise(el) {
 
   const totalEx = exercises.length;
   const exNum = _state.exIdx + 1;
-  const progress = Math.round((((_state.isExtraCredit ? _sess.exercises.length : 0) + _state.exIdx) / (_sess.exercises.length + _sess.extraCredit.length)) * 100);
+  const mainLen = (_sess.exercises || []).length;
+  const ecLen   = (_sess.extraCredit || []).length;
+  const totalAll = mainLen + ecLen || 1;
+  const doneCount = (_state.isExtraCredit ? mainLen : 0) + _state.exIdx;
+  const progress = Math.round((doneCount / totalAll) * 100);
 
   const svgHtml = getExerciseSVG(ex.animKey || ex.id);
   const setsInfo = ex.type === 'timed'
@@ -263,13 +319,24 @@ function renderSetActive(el) {
   clearInterval(_phaseInterval);
   if (_timer) { _timer.stop(); _timer = null; }
 
-  const exercises = _state.isExtraCredit ? _sess.extraCredit : _sess.exercises;
+  // Requirement 2: defensive access before touching exercise arrays
+  const exercises = _state.isExtraCredit
+    ? (_sess.extraCredit || [])
+    : (_sess.exercises || []);
   const ex = exercises[_state.exIdx];
-  if (!ex) return;
+  if (!ex) {
+    // No exercise at this index — fall back to intro which handles end-of-list
+    _state.phase = 'EXERCISE_INTRO';
+    return renderSessionScreen();
+  }
 
-  const totalSets = ex.sets;
+  const totalSets = ex.sets || 1;
   const currentSet = _state.setIdx + 1;
-  const progress = Math.round((((_state.isExtraCredit ? _sess.exercises.length : 0) + _state.exIdx) / (_sess.exercises.length + _sess.extraCredit.length)) * 100);
+  const mainLen = (_sess.exercises || []).length;
+  const ecLen   = (_sess.extraCredit || []).length;
+  const totalAll = mainLen + ecLen || 1;
+  const doneCount = (_state.isExtraCredit ? mainLen : 0) + _state.exIdx;
+  const progress = Math.round((doneCount / totalAll) * 100);
 
   // Build set dots
   const setDots = Array.from({length: totalSets}, (_, i) => {

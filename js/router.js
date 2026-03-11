@@ -41,6 +41,15 @@ function navigate(screenId, params = {}) {
     case 'session':
       if (params.week && params.dayKey) {
         startWorkoutSession(params.week, params.dayKey);
+      } else {
+        // No specific session params — start the next incomplete workout
+        const next = getUpcomingSessions(1);
+        const target = next.length ? next[0] : getAllSessions()[0];
+        if (target) {
+          startWorkoutSession(target.week, target.dayKey);
+        } else {
+          startWorkoutSession(null, null); // triggers fallback UI
+        }
       }
       break;
     case 'warmup':   /* handled by session flow */  break;
